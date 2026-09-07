@@ -334,10 +334,10 @@ class GuiManager {
         ; 自动暂停开关（仅"常规作战"页显示）。
         ; 列栅格：C 输入框与右侧按键 Edit 列对齐（x515 w140），复选框贴其左侧（右缘 500），
         ; 复选框文案向右延伸时自动左移，任何语言都不会越窗。
-        autoBeginW := Metrics.TextWidth(I18n.T(" 切换开局自动暂停"))
-        checkboxAutoBeginPause := Theme.Add(this.MainGui, "Checkbox", "x" (500 - autoBeginW - 20) " yp-2 h24 vAutoBeginPause", I18n.T(" 切换开局自动暂停"))
+        autoBeginW := Metrics.TextWidth(I18n.T(" 开局自动暂停"))
+        checkboxAutoBeginPause := this.MainGui.Add("Checkbox", "x" (500 - autoBeginW - 20) " yp-2 h24 vAutoBeginPause", I18n.T(" 开局自动暂停"))
         checkboxAutoBeginPause.OnEvent("Click", (*) => this.TrackChange("AutoBeginPause"))
-        StatusBarHints.Register(checkboxAutoBeginPause, "进入关卡时自动按下暂停")
+        StatusBarHints.Register(checkboxAutoBeginPause, "进入关卡时自动按下暂停，按下绑定的快捷键可切换功能启用或停用")
         this.MainGui["AutoBeginPause"].Value := Config.GetImportant("AutoBeginPause")
         checkboxAutoBeginPause.GetPos(&cbPauseX, &cbPauseY)   ; 记录位置供快捷操作页复用
         this.KeybindControls.Push(checkboxAutoBeginPause)
