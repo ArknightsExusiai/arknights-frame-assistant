@@ -266,16 +266,15 @@ git checkout -b feat/your-feature-name
 
 ## 测试流程
 
-运行时与 GUI 功能以**手工验证**为主。仓库同时包含 Python 静态门禁与源码契约检查，可在项目根目录运行：
+运行时与 GUI 功能以**手工验证**为主。仓库包含 Python 静态门禁检查，可在项目根目录运行：
 
 ```powershell
 python -X utf8 tools/layer_check.py --baseline KNOWN_VIOLATIONS
 python -X utf8 tools/event_contract_check.py
 python -X utf8 tools/i18n_check.py
-python -X utf8 tools/test_theme_contract.py
 ```
 
-静态检查不启动 AFA，也不证明控件绘制正确。AHK 独立测试位于 `test/scripts/`，执行结果与手工结果分别记录。当前验收使用 [深色模式测试清单](test/finished_test_dark_mode_current.md)；[旧清单](test/finished_test_dark_mode.md)保留历史结果，不代表当前版本已验收。
+静态检查不启动 AFA。AHK 独立测试位于 `test/scripts/`，执行结果与手工结果分别记录。
 
 ### 测试清单创建
 
