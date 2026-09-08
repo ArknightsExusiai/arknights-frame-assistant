@@ -122,6 +122,7 @@ class App {
         CoordMode "Mouse", "Client"
         DllCall("winmm\timeBeginPeriod", "UInt", 1)
 
+        ; 退出顺序依赖：Theme.Stop 以 OnExit(-1) 注册，须早于本回调写 [Shutdown] 标记
         OnExit HandleAfaExit
 
         startedByGameAutoStart := HasLaunchArgument("--game-autostart")

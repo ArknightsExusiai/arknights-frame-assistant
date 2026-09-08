@@ -63,7 +63,8 @@ class Theme {
         for msg in [0x0133, 0x0134, 0x0135, 0x0136, 0x0138]
             OnMessage(msg, ObjBindMethod(this, "_ControlColor"))
         OnMessage(0x0082, ObjBindMethod(this, "_WindowDestroyed"))
-        OnExit(ObjBindMethod(this, "Stop"))
+        ; -1：早于 main.ahk 的 HandleAfaExit 执行，保证停止日志写在 [Shutdown] 标记之前
+        OnExit(ObjBindMethod(this, "Stop"), -1)
         Logger.Info("Theme", "初始化：Windows=" A_OSVersion ", AHK=" A_AhkVersion ", ptr=" A_PtrSize ", saved=" this.SavedMode)
         this.Refresh()
     }
