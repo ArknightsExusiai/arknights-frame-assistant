@@ -36,13 +36,8 @@ class Theme {
         "Border", "555555", "Row", "2B2B2B", "Selected", "26485E",
         "Error", "FF6B6B", "Unsaved", "FF6B6B", "Button", "333333", "Hover", "414141")
 
-    static Normalize(mode) {
-        ; 先统一输入大小写，再判断有效模式；否则 DARK 会被误判为 auto。
-        switch StrLower(mode) {
-            case "auto", "light", "dark": return StrLower(mode)
-            default: return "auto"
-        }
-    }
+    ; 规范化规则唯一实现在 Constants.NormalizeThemeMode；此处仅保留对外薄封装。
+    static Normalize(mode) => Constants.NormalizeThemeMode(mode)
 
     ; 纯解析入口，便于验证预览优先级；高对比度由系统绘制接管。
     static Resolve(saved, preview, appsUseLightTheme, highContrast := false) {

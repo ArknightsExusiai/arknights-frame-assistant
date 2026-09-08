@@ -107,8 +107,6 @@ class Config {
     static GetImportant(key) {
         if !this._IsLoaded
             this.LoadFromIni()
-        if (key = "ThemeMode")
-            return Theme.Normalize(this._ImportantSettings.Has(key) ? this._ImportantSettings[key] : "auto")
         if (key = "Frame") {
             frame155 := this._ImportantSettings.Has("Frame155") && this._ImportantSettings["Frame155"] != ""
                 ? this._ImportantSettings["Frame155"]
@@ -124,7 +122,7 @@ class Config {
         if this.IniFile = ""
             this.InitPath()
         if (key = "ThemeMode")
-            return Theme.Normalize(IniRead(this.IniFile, "Main", key, "auto"))
+            return Constants.NormalizeThemeMode(IniRead(this.IniFile, "Main", key, "auto"))
         if (key = "GitHubToken") {
             return this._ReadGitHubToken()
         }
@@ -149,7 +147,7 @@ class Config {
     ; 设置重要设置（Frame 自动同步 Frame155）
     static SetImportant(key, value) {
         if (key = "ThemeMode")
-            value := Theme.Normalize(value)
+            value := Constants.NormalizeThemeMode(value)
         this._ImportantSettings[key] := value
         if (key = "Frame")
             this._ImportantSettings["Frame155"] := value
@@ -452,7 +450,8 @@ class Config {
             }
         }
 
-        this._ImportantSettings["ThemeMode"] := Theme.Normalize(this._ImportantSettings["ThemeMode"])
+        ; 工作副本入口统一规范化主题模式（写盘值由 _PersistSingleValue 保证）
+        this._ImportantSettings["ThemeMode"] := Constants.NormalizeThemeMode(this._ImportantSettings["ThemeMode"])
 
         ; 加载自定义设置
         for keyVar, defaultVal in this._DefaultCustom {
@@ -794,6 +793,10 @@ class Config {
 
         if this._IsHotkeyValuedKey(key)
             value := this._NormalizeHotkeyValue(value)
+
+        ; 写盘值恒为规范化结果（手改 INI 成 DARK 时，下次保存自动回正）
+        if (key = "ThemeMode")
+            value := Constants.NormalizeThemeMode(value)
 
         Critical "On"
         try {

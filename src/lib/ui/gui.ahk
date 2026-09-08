@@ -10,7 +10,7 @@ class GuiManager {
     static ServerPathsText := ""
     static RunningClientsText := ""
     ; 语言代码顺序与下拉框显示顺序一致
-    static ThemeModes := ["auto", "light", "dark"]
+    static ThemeModes := Constants.ThemeModes   ; 主题模式清单唯一来源（Constants）
     static LanguageCodes := ["auto", "zh-Hans", "zh-Hant", "ja-JP", "ko-KR", "en-US"]
     ; 下拉框显示名固定使用各语言自己的写法，不随当前界面语言变化
     static LanguageDisplayNames := Map(

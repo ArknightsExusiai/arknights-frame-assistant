@@ -46,9 +46,8 @@ class SettingsService {
     }
 
     ; 单键配置变更唯一入口：原子写入 INI → 更新 Config 工作副本 → 发布 SettingsChanged
+    ; ThemeMode 的规范化由 Config._PersistSingleValue 与 Config.SetImportant 各自保证，此处不重复。
     static UpdatePersistedValue(key, value) {
-        if (key = "ThemeMode")
-            value := Theme.Normalize(value)
         if (key != "Frame"
             && !Config.AllHotkeys.Has(key)
             && !Config.AllCustom.Has(key)

@@ -1,8 +1,11 @@
 #Requires AutoHotkey v2.0
 #Warn All, Off
+#Include ../../src/lib/base/hotkey_schema.ahk
+#Include ../../src/lib/base/constants.ahk
 #Include ../../src/lib/base/theme.ahk
 
 ; 独立纯逻辑测试：不调用 Theme.Init，不创建窗口，不读取真实设置或注册表。
+; 包含 hotkey_schema/constants 仅为提供 Constants.NormalizeThemeMode（纯数据与纯函数）。
 OnError(ThemeTestFailure)
 RunThemeTests()
 
@@ -38,9 +41,17 @@ CheckThemeCases() {
     if (Theme.Normalize("DARK") != "dark" || Theme.Normalize("LiGhT") != "light"
         || Theme.Normalize("Auto") != "auto" || Theme.Normalize("unknown") != "auto")
         throw Error("Mode normalization failed")
+    ; 规范化规则唯一实现于 Constants；Theme.Normalize 必须是同一结果
+    if (Constants.NormalizeThemeMode("DARK") != "dark" || Constants.NormalizeThemeMode("") != "auto"
+        || Constants.NormalizeThemeMode("light") != "light" || Constants.NormalizeThemeMode("Unknown") != "auto")
+        throw Error("Constants.NormalizeThemeMode failed")
+    for mode in Constants.ThemeModes {
+        if (Theme.Normalize(mode) != Constants.NormalizeThemeMode(mode))
+            throw Error("Theme.Normalize diverged from Constants.NormalizeThemeMode for " mode)
+    }
     if (Theme._Ready || Theme._SubclassPtr || Theme._Windows.Count || Theme._Controls.Count)
         throw Error("Pure theme tests triggered initialization")
-    FileAppend("PASS: 12 resolution cases, normalization and no initialization`n", "*", "UTF-8")
+    FileAppend("PASS: 12 resolution cases, normalization (single source in Constants) and no initialization`n", "*", "UTF-8")
 }
 
 ThemeTestFailure(err, *) {

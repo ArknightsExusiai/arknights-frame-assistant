@@ -4,6 +4,18 @@
 class Constants {
     static DefaultTabOrder := "keyBind,quick,strongHoldProtocol,customKeys,other"
 
+    ; 界面主题模式：唯一合法值集合与规范化规则（Config/Theme/GUI 共用，勿在别处重复定义）
+    static ThemeModes := ["auto", "light", "dark"]
+
+    ; 规范化主题模式：大小写不敏感，非法值回退 auto（纯函数，无外部依赖）
+    static NormalizeThemeMode(mode) {
+        mode := StrLower(mode)
+        for item in this.ThemeModes
+            if (item = mode)
+                return mode
+        return "auto"
+    }
+
     ; 延迟常量
     static Delay30 := 34      ; 30帧
     static Delay60 := 17      ; 60帧
