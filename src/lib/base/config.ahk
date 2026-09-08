@@ -44,7 +44,8 @@ class Config {
         "BackCeaseOperations", "1",
         "InLevelGuard", "1",
         "DebugEnabled", "0",
-        "Language", "auto"
+        "Language", "auto",
+        "ThemeMode", "auto"
     )
 
     ; 内部：默认自定义设置
@@ -120,6 +121,8 @@ class Config {
     static ReadImportantFromIni(key) {
         if this.IniFile = ""
             this.InitPath()
+        if (key = "ThemeMode")
+            return Constants.NormalizeThemeMode(IniRead(this.IniFile, "Main", key, "auto"))
         if (key = "GitHubToken") {
             return this._ReadGitHubToken()
         }
@@ -143,6 +146,8 @@ class Config {
 
     ; 设置重要设置（Frame 自动同步 Frame155）
     static SetImportant(key, value) {
+        if (key = "ThemeMode")
+            value := Constants.NormalizeThemeMode(value)
         this._ImportantSettings[key] := value
         if (key = "Frame")
             this._ImportantSettings["Frame155"] := value
@@ -444,6 +449,9 @@ class Config {
                 this._ImportantSettings[keyVar] := IniRead(this.IniFile, "Main", keyVar, defaultVal)
             }
         }
+
+        ; 工作副本入口统一规范化主题模式（写盘值由 _PersistSingleValue 保证）
+        this._ImportantSettings["ThemeMode"] := Constants.NormalizeThemeMode(this._ImportantSettings["ThemeMode"])
 
         ; 加载自定义设置
         for keyVar, defaultVal in this._DefaultCustom {
@@ -762,7 +770,7 @@ class Config {
             ; FileCopy 会继承源文件的只读属性；先让临时副本可写，目标文件仍保持原属性。
             FileSetAttrib("-R", tempIniFile)
             for entry in entries {
-                if entry.Has("Value")
+                if entry.HasOwnProp("Value")
                     IniWrite(entry.Value, tempIniFile, entry.Section, entry.Key)
                 else
                     try IniDelete(tempIniFile, entry.Section, entry.Key)
@@ -785,6 +793,10 @@ class Config {
 
         if this._IsHotkeyValuedKey(key)
             value := this._NormalizeHotkeyValue(value)
+
+        ; 写盘值恒为规范化结果（手改 INI 成 DARK 时，下次保存自动回正）
+        if (key = "ThemeMode")
+            value := Constants.NormalizeThemeMode(value)
 
         Critical "On"
         try {

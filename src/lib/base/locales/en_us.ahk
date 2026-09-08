@@ -529,5 +529,10 @@ class LocaleEnUS {
         "遇到问题可在「日志」页导出日志压缩包，然后到GitHub Issues或者加入QQ群反馈", "If you run into issues, export the log archive from the `"Log`" page, then report on GitHub Issues or join the QQ group",
         "鼠标移动到想要开技能的单位上，按下后自动选中并开启技能", "Move the mouse to the unit you want to use a skill on, then press to select and activate the skill automatically",
         "鼠标移动到想要撤退的单位上，按下后自动选中并撤退", "Move the mouse to the unit you want to retreat, then press to select and retreat automatically",
+        "界面主题", "Interface theme",
+        "跟随系统", "Follow system",
+        "浅色", "Light",
+        "深色", "Dark",
+        "修改AFA的界面主题", "Change the AFA interface theme",
     )
 }
