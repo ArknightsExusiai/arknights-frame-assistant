@@ -533,7 +533,6 @@ class LocaleEnUS {
         "跟随系统", "Follow system",
         "浅色", "Light",
         "深色", "Dark",
-        "立即预览主题，保存或应用后记住，取消后恢复", "Preview immediately; Save or Apply to keep, Cancel to restore",
-        "跟随系统时，界面会随 Windows 应用主题自动切换", "When following the system, the interface changes with the Windows app theme",
+        "修改AFA的界面主题", "Change the AFA interface theme",
     )
 }

@@ -580,11 +580,10 @@ class GuiManager {
         ddTheme := Theme.Add(this.MainGui, "DropDownList", "x+12 yp-3 w" themeWidth " vThemeMode", themeLabels)
         ddTheme.Value := this._ThemeToIndex(Config.GetImportant("ThemeMode"))
         ddTheme.OnEvent("Change", (*) => this.TrackChange("ThemeMode"))
-        StatusBarHints.Register(ddTheme, "立即预览主题，保存或应用后记住，取消后恢复")
-        themeHint := Theme.Add(this.MainGui, "Text", "x160 y+10 w530 cSecondary", I18n.T("跟随系统时，界面会随 Windows 应用主题自动切换"))
-        this.DisplayControls.Push(txtTheme, ddTheme, themeHint)
-        themeHint.GetPos(, &themeHintY, , &themeHintH)
-        this.TabManagerTitleY := themeHintY + themeHintH + 16
+        StatusBarHints.Register(ddTheme, "修改AFA的界面主题")
+        this.DisplayControls.Push(txtTheme, ddTheme)
+        txtTheme.GetPos(, &txtThemeY, , &txtThemeH)
+        this.TabManagerTitleY := txtThemeY + txtThemeH + 16
 
         ; 分类"启动与退出"
         sepLaunch := Theme.Add(this.MainGui, "Text", "x160 y48 w530 h1 BackgroundBorder Center Section")
@@ -1506,7 +1505,6 @@ class GuiManager {
             isGitHub := (this.MainGui["UpdateSource"].Value == 2)  ; 2 = GitHub
             this.MainGui["UseGitHubToken"].Enabled := isGitHub
             this.MainGui["GitHubToken"].Enabled := isGitHub
-            this.HintGithubToken.Enabled := isGitHub
         }
     }
 
