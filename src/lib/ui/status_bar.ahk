@@ -28,11 +28,12 @@ class StatusBarHints {
     static _CurrentKey := ""
     static _CurrentArgs := []
     static _CurrentText := ""
-    ; 轮播文案（中文原文，显示时经 I18n.T；文案定稿见 docs/status_bar_texts_review.md）
+    ; 轮播文案（中文原文，显示时经 I18n.T）
     static _TipItems := [
         "悬停到任意控件即可查看功能说明",
         "修改设置后记得保存或应用哦",
-        "遇到问题可在「日志」页导出日志压缩包，然后到GitHub Issues或者加入QQ群反馈"
+        "遇到问题可在「日志」页导出日志压缩包，然后到GitHub Issues或者加入QQ群反馈",
+        "使用满意的话欢迎上GitHub给AFA点个Star，非常感谢~"
     ]
     static _LastTip := ""
     ; 定时器回调必须是单一函数对象（SetTimer 启停按对象身份匹配）
@@ -58,8 +59,11 @@ class StatusBarHints {
         this._CurrentText := ""
         this._LastTip := ""
         ; 主题色指示块（左下角）+ 说明文本（紧随其右，黑色）
-        this.SepLine := mainGui.Add("Text", "x0 y+-6 w28 h13 Background1994d2")
-        this.TextCtrl := mainGui.Add("Text", "x+4 yp-2 w660 cDefault", "")
+        this.SepLine := Theme.Add(mainGui, "Text", "x0 y+-6 w28 h13 BackgroundAccent")
+        this.TextCtrl := Theme.Add(mainGui, "Text", "x+4 yp-2 w660 cText", "")
+        ; 双缓冲（WS_EX_COMPOSITED）下系统按实际 Z 序合成，与对话框项按创建顺序绘制的约定不同；
+        ; 指示块与末尾 1×1 空白占位 Text（x0 白底）重叠，需显式置顶，否则占位会以白点浮在指示块上
+        GuiManager._SetOverlayZ(this.SepLine, 0)
         if !this._MsgRegistered {
             this._MsgRegistered := true
             OnMessage(0x0200, ObjBindMethod(this, "OnMouseMove"))
@@ -131,7 +135,7 @@ class StatusBarHints {
         SetTimer(this._RotateCallback, this.RotateIntervalMs)
     }
 
-    ; 按当前小时返回问候语键（键=中文原文，显示时经 I18n.T；文案定稿见 docs/status_bar_texts_review.md）。
+    ; 按当前小时返回问候语键（键=中文原文，显示时经 I18n.T）。
     ; 分段：6:00-11:00 早 / 11:00-13:00 中午 / 13:00-18:00 下午 / 18:00-23:00 晚上 /
     ; 23:00-4:00 夜猫子 / 4:00-6:00 刚醒或没睡。
     static _GreetingFor(hour) {

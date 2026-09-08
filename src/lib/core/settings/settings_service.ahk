@@ -17,17 +17,24 @@ class SettingsService {
     static Initialize() {
         Config.MigrateFrameRate()
         Config.MigrateGitHubToken()
+        Config.MigrateHotkeyCase()
         Config.LoadFromIni()
+        ; 缺键时默认读取不会落盘；启动时仅补回主题键，不保存其他工作副本。
+        if (IniRead(Config.IniFile, "Main", "ThemeMode", "__AFA_MISSING_KEY__") = "__AFA_MISSING_KEY__") {
+            themeBackfill := Config._PersistSingleValue("ThemeMode", "auto")
+            if !themeBackfill.success
+                Logger.Warn("Settings", "回填主题设置失败：" themeBackfill.message)
+        }
         Config.MigrateGamePaths()
         I18n.Init(Config.ReadImportantFromIni("Language"))
+        Theme.Confirm(Config.ReadImportantFromIni("ThemeMode"))
         this._RefreshRuntime()
     }
 
     ; 内部：启动/保存/应用/重置后刷新与配置相关的运行时缓存
     static _RefreshRuntime() {
-        debugOn := Config.ReadImportantFromIni("DebugEnabled") == "1"
-        Logger.SetDebugEnabled(debugOn)
-        Logger.SetConsoleEnabled(debugOn)
+        ; DebugEnabled 现仅控制实时调试控制台（日志全级别恒持久化，不再依赖该开关）
+        Logger.SetConsoleEnabled(Config.ReadImportantFromIni("DebugEnabled") == "1")
         TimingService.Refresh()
         HotkeyService.SetHoverOperate(Config.ReadCustomFromIni("HoverOperate") == "1")
         lang := Config.ReadImportantFromIni("Language")
@@ -39,6 +46,7 @@ class SettingsService {
     }
 
     ; 单键配置变更唯一入口：原子写入 INI → 更新 Config 工作副本 → 发布 SettingsChanged
+    ; ThemeMode 的规范化由 Config._PersistSingleValue 与 Config.SetImportant 各自保证，此处不重复。
     static UpdatePersistedValue(key, value) {
         if (key != "Frame"
             && !Config.AllHotkeys.Has(key)
@@ -61,6 +69,8 @@ class SettingsService {
             Config.SetImportant(key, value)
         }
 
+        if (key = "ThemeMode")
+            Theme.Confirm(value)
         EventBus.Publish("SettingsChanged", {key: key, value: value})
         return result
     }
@@ -110,6 +120,7 @@ class SettingsService {
     ; 取消设置修改
     static Cancel() {
         Config.LoadFromIni()
+        Theme.Confirm(Config.ReadImportantFromIni("ThemeMode"))
         this._RefreshRuntime()
         Logger.Info("Settings", "取消设置修改并恢复配置")
         EventBus.Publish("SettingsViewRefreshRequested")
@@ -143,6 +154,7 @@ class SettingsService {
             Logger.Warn("Settings", isApply ? "设置应用中止" : "设置保存中止")
             return
         }
+        Theme.Confirm(Config.ReadImportantFromIni("ThemeMode"))
         this._RefreshRuntime()
         this._ResetGameStateIfNeeded()
         if (isApply) {
@@ -203,26 +215,22 @@ class SettingsService {
             if (gamePath = "")
                 continue
             if !FileExist(gamePath) {
-                result := MessageBox.Confirm(I18n.T("游戏路径不存在：`n{1}`n`n是否仍要保存？", gamePath), I18n.T("路径不存在"))
-                if (result = "No") {
-                    Logger.Warn("Settings", "保存中止：游戏路径不存在")
-                    return false
-                }
-                continue
+                ; 严格拒绝：不存在的路径不落盘（需修正后再次保存）
+                MessageBox.Error(I18n.T("游戏路径不存在：`n{1}`n`n请修正路径后再保存。", gamePath), I18n.T("路径不存在"))
+                Logger.Warn("Settings", "保存中止：游戏路径不存在：" gamePath)
+                return false
             }
             info := ServerProfile.FromExePath(gamePath)
-            if (info.serverId = "") {
-                result := MessageBox.Confirm(I18n.T("游戏路径不正确：`n{1}`n`n目标文件不是 Arknights.exe，请确保选择正确的游戏可执行文件。`n`n是否仍要保存？", gamePath), I18n.T("路径不正确"))
-                if (result = "No") {
-                    Logger.Warn("Settings", "保存中止：无法从路径推断区服")
-                    return false
-                }
-            } else {
-                Logger.Info("Settings", "游戏路径区服识别：" info.serverId " - " gamePath)
+            if (info.serverId = "" || info.serverId = "Unknown") {
+                ; 严格拒绝：无法确认是明日方舟可执行文件时不落盘
+                MessageBox.Error(I18n.T("游戏路径不正确：`n{1}`n`n目标文件不是明日方舟可执行文件（Arknights.exe），请修正后再保存。", gamePath), I18n.T("路径不正确"))
+                Logger.Warn("Settings", "保存中止：无法从路径推断区服：" gamePath)
+                return false
             }
+            Logger.Info("Settings", "游戏路径区服识别：" info.serverId " - " gamePath)
         }
 
-        ; 应用“启动游戏时自动启动小助手”设置
+        ; 应用“启动游戏时自动启动AFA”设置
         if (!this._ApplyGameAutoStart()) {
             Logger.Warn("Settings", "保存中止：随游戏自动启动设置应用失败")
             return false
@@ -240,7 +248,12 @@ class SettingsService {
         }
 
         ; 保存到 INI（全量保存 Config 工作副本；单键场景请走 UpdatePersistedValue）
-        saveResult := Config.SaveAllToIni()
+        ; 主题最后提交：自定义按键文件失败时，不把仍处于预览的主题提前落盘。
+        themeMode := Config.GetImportant("ThemeMode")
+        savedThemeMode := Config.ReadImportantFromIni("ThemeMode")
+        Config.SetImportant("ThemeMode", savedThemeMode)
+        try saveResult := Config.SaveAllToIni()
+        finally Config.SetImportant("ThemeMode", themeMode)
         if (!saveResult.success) {
             MessageBox.Error(saveResult.message, I18n.T("设置保存失败"))
             return false
@@ -252,6 +265,13 @@ class SettingsService {
             Logger.Warn("Settings", "保存中止：自定义按键文件写入失败：" customSaveResult.message)
             MessageBox.Error(I18n.T("配置文件写入失败：{1}", customSaveResult.message), I18n.T("设置保存失败"))
             return false
+        }
+        if (themeMode != savedThemeMode) {
+            themeSaveResult := Config._PersistSingleValue("ThemeMode", themeMode)
+            if (!themeSaveResult.success) {
+                MessageBox.Error(themeSaveResult.message, I18n.T("设置保存失败"))
+                return false
+            }
         }
         return true
     }
