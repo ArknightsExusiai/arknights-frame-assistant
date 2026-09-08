@@ -553,6 +553,8 @@ class GuiManager {
         ; 分类"通用"（置首位）
         sepGeneral := Theme.Add(this.MainGui, "Text", "x160 y48 w530 h1 BackgroundBorder Center Section")
         sepGeneralTxt := Theme.Add(this.MainGui, "Text", "xs+40 y+-9 Center cMuted", I18n.T("  通用设置  "))
+        ; 双缓冲按实际 Z 序合成，标题需置于横线之上，否则横线会穿过标题文字（与强调线同款 _SetOverlayZ 处理）
+        this._SetOverlayZ(sepGeneralTxt, 0)
         this.GeneralControls.Push(sepGeneral)
         this.GeneralControls.Push(sepGeneralTxt)
 
@@ -568,6 +570,8 @@ class GuiManager {
         ; 分类"显示"
         sepDisplay := Theme.Add(this.MainGui, "Text", "x160 y48 w530 h1 BackgroundBorder Center Section")
         sepDisplayTxt := Theme.Add(this.MainGui, "Text", "xs+40 y+-9 Center cMuted", I18n.T("  显示设置  "))
+        ; 双缓冲按实际 Z 序合成，标题需置于横线之上，否则横线会穿过标题文字（与强调线同款 _SetOverlayZ 处理）
+        this._SetOverlayZ(sepDisplayTxt, 0)
         this.DisplayControls.Push(sepDisplay)
         this.DisplayControls.Push(sepDisplayTxt)
         ; 标签管理器迁入“显示”分类后，标题重新锚定到本分类内容区顶部
@@ -588,6 +592,8 @@ class GuiManager {
         ; 分类"启动与退出"
         sepLaunch := Theme.Add(this.MainGui, "Text", "x160 y48 w530 h1 BackgroundBorder Center Section")
         sepLaunchTxt := Theme.Add(this.MainGui, "Text", "xs+40 y+-9 Center cMuted", I18n.T("  启动与退出设置  "))
+        ; 双缓冲按实际 Z 序合成，标题需置于横线之上，否则横线会穿过标题文字（与强调线同款 _SetOverlayZ 处理）
+        this._SetOverlayZ(sepLaunchTxt, 0)
         this.LaunchControls.Push(sepLaunch)
         this.LaunchControls.Push(sepLaunchTxt)
 
@@ -679,6 +685,8 @@ class GuiManager {
         ; 分类"更新"
         sepUpdate := Theme.Add(this.MainGui, "Text", "x160 y48 w530 h1 BackgroundBorder Center Section")
         sepUpdateTxt := Theme.Add(this.MainGui, "Text", "xs+40 y+-9 Center cMuted", I18n.T("  更新设置  "))
+        ; 双缓冲按实际 Z 序合成，标题需置于横线之上，否则横线会穿过标题文字（与强调线同款 _SetOverlayZ 处理）
+        this._SetOverlayZ(sepUpdateTxt, 0)
         this.UpdateControls.Push(sepUpdate)
         this.UpdateControls.Push(sepUpdateTxt)
 
@@ -743,6 +751,8 @@ class GuiManager {
         ; 分类"自定义"
         sepCustom := Theme.Add(this.MainGui, "Text", "x160 y48 w530 h1 BackgroundBorder Center Section")
         sepCustomTxt := Theme.Add(this.MainGui, "Text", "xs+40 y+-9 Center cMuted", I18n.T("  自定义设置  "))
+        ; 双缓冲按实际 Z 序合成，标题需置于横线之上，否则横线会穿过标题文字（与强调线同款 _SetOverlayZ 处理）
+        this._SetOverlayZ(sepCustomTxt, 0)
         this.CustomControls.Push(sepCustom)
         this.CustomControls.Push(sepCustomTxt)
 
@@ -841,6 +851,8 @@ class GuiManager {
         ; 分类"日志"
         sepLog := Theme.Add(this.MainGui, "Text", "x160 y48 w530 h1 BackgroundBorder Center Section")
         sepLogTxt := Theme.Add(this.MainGui, "Text", "xs+40 y+-9 Center cMuted", I18n.T("  日志设置  "))
+        ; 双缓冲按实际 Z 序合成，标题需置于横线之上，否则横线会穿过标题文字（与强调线同款 _SetOverlayZ 处理）
+        this._SetOverlayZ(sepLogTxt, 0)
         this.LogControls.Push(sepLog)
         this.LogControls.Push(sepLogTxt)
 
