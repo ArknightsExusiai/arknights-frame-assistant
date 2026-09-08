@@ -19,7 +19,7 @@ class ChangelogUI {
         Theme.Attach(this.GuiObj)
         this.GuiObj.Opt("+Owner")
         hWnd := this.GuiObj.Hwnd
-        try DllCall("dwmapi\DwmSetWindowAttribute", "ptr", hWnd, "int", 38, "int*", true, "int", 4)
+        Theme.SetWindowAttribute(hWnd, Theme.DWMWA_SYSTEMBACKDROP_TYPE, Theme.DWMSBT_NONE)
 
         Theme.SetFont(this.GuiObj, "s16 bold", Metrics.FontFor(I18n.GetCurrent()))
         Theme.Add(this.GuiObj, "Text", "y10 w450 Center", I18n.T("AFA版本更新公告"))

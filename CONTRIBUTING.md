@@ -175,7 +175,7 @@ CheckGameProcess(process_name) {
 ```bash
 git checkout develop
 git pull upstream develop
-git checkout -b feature/your-feature-name
+   git checkout -b feat/your-feature-name
 ```
 
 分支命名规范：
@@ -275,7 +275,7 @@ python -X utf8 tools/i18n_check.py
 python -X utf8 tools/test_theme_contract.py
 ```
 
-静态检查不启动 AFA，也不证明原生控件绘制正确。AHK 独立测试位于 `test/scripts/`，执行结果与手工结果分别记录。主题流程及增量验收见 [深色模式测试清单](test/finished_test_dark_mode.md)。
+静态检查不启动 AFA，也不证明控件绘制正确。AHK 独立测试位于 `test/scripts/`，执行结果与手工结果分别记录。当前验收使用 [深色模式测试清单](test/finished_test_dark_mode_current.md)；[旧清单](test/finished_test_dark_mode.md)保留历史结果，不代表当前版本已验收。
 
 ### 测试清单创建
 

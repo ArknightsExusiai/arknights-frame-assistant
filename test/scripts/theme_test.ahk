@@ -35,7 +35,8 @@ CheckThemeCases() {
         if (result != item[5])
             throw Error("Resolve case " index ": expected " item[5] ", got " result)
     }
-    if (Theme.Normalize("DARK") != "dark" || Theme.Normalize("unknown") != "auto")
+    if (Theme.Normalize("DARK") != "dark" || Theme.Normalize("LiGhT") != "light"
+        || Theme.Normalize("Auto") != "auto" || Theme.Normalize("unknown") != "auto")
         throw Error("Mode normalization failed")
     if (Theme._Ready || Theme._SubclassPtr || Theme._Windows.Count || Theme._Controls.Count)
         throw Error("Pure theme tests triggered initialization")

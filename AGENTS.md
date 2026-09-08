@@ -79,11 +79,14 @@ This file provides guidance to AI coding agents (DeepSeek Harness / dsh, etc.) w
 
 ### 主题维护
 
+- Theme 生命周期与低频模式变化使用现有 Logger；绘制故障按操作去重并延后写入，不逐帧或逐次鼠标移动记录。Win32 版本门槛、结构体与释放关系见 `docs/win_docs/theme_api_compatibility.md`；DWM 必须检查 HRESULT，不能只依赖 try。
+
 - `src/lib/base/theme.ahk` 是配色与窗口资源的唯一 owner；控件经 `Theme.Add` / `Theme.SetFont` 使用语义色，窗口经 `Theme.Destroy` 注销，避免硬编码颜色或遗留句柄。颜色变化只重绘，不重建窗口或改变热键组。
 - `[Main] ThemeMode=auto|light|dark` 默认 auto；`SettingsService.Initialize()` 仅在缺键时原子补回 auto。已有非法值按 auto 读取，正常保存时规范化；INI 行位置不固定，节名必须是 Main。
 - `Theme.Preview` 仅更新显示；保存成功与取消经 `Theme.Confirm` 同步。预览优先于已保存模式；按键重置及切页不结束预览。主题最后落盘，避免自定义按键文件保存失败时提前提交主题。
 - 系统跟随读取应用模式 `AppsUseLightTheme`，系统通知用一次性计时器合并，高对比度优先。Edit 仅接管深色非客户区边框，保留原生光标、选区与滚动；浅色和高对比度交还原生绘制。
-- 普通对象属性检测使用 `HasOwnProp`，Map 键检测才用 `Has`；原子 INI entries 是普通对象。主题修改运行 `python -X utf8 tools/test_theme_contract.py` 并参考 `test/finished_test_dark_mode.md`；源码契约通过不等同于 GUI 验收。
+- 主窗口保留 WS_EX_COMPOSITED。重叠控件必须维护背景→高亮→文字的 Z 序，顶部与左侧强调线经 _SetOverlayZ 置顶；透明 Text 的 BackgroundTrans 与 WS_EX_TRANSPARENT 配合。窗口标题栏仅由 Theme 管理；带滚动条 Edit 保留系统视觉主题。机制与边界以 docs/win_docs/theme_api_compatibility.md 为准，隔离截图不替代完整应用验收。
+- 普通对象属性检测使用 `HasOwnProp`，Map 键检测才用 `Has`；原子 INI entries 是普通对象。主题修改运行 `python -X utf8 tools/test_theme_contract.py` 并参考 `test/finished_test_dark_mode_current.md`（当前验收）与 `test/finished_test_dark_mode.md`（历史记录）；源码契约通过不等同于 GUI 验收。
 
 ### 关键设计
 

@@ -89,7 +89,7 @@ class MessageBox {
         Theme.Attach(dialog)
         Theme.SetFont(dialog, "s10", Metrics.FontFor(I18n.GetCurrent()))
         hWnd := dialog.Hwnd
-        try DllCall("dwmapi\DwmSetWindowAttribute", "ptr", hWnd, "int", 38, "int*", true, "int", 4)
+        Theme.SetWindowAttribute(hWnd, Theme.DWMWA_SYSTEMBACKDROP_TYPE, Theme.DWMSBT_NONE)
 
         ; 计算文本区域
         textX := 30

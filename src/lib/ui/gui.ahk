@@ -121,7 +121,9 @@ class GuiManager {
         this.WindowName := I18n.T("明日方舟帧操小助手 ArknightsFrameAssistant - {1}", Version.Get())
         this.MainGui := Gui(, this.WindowName)
         this.MainGui.MarginX := 0
-        this.MainGui.Opt("+MinimizeBox")
+        ; 主窗口及子控件由 Windows 双缓冲合成，浅/深色均启用；保留现有控件绘制和切页顺序。
+        ; 在创建子控件前设置；不使用 WM_SETREDRAW 暂停刷新，不为弹出窗口额外启用。
+        this.MainGui.Opt("+MinimizeBox +E0x02000000") ; WS_EX_COMPOSITED
         Theme.Attach(this.MainGui)
         WinSetTransColor("ffa8a8", this.MainGui)
         Theme.SetFont(this.MainGui, "s9", Metrics.FontFor(I18n.GetCurrent()))
@@ -263,7 +265,7 @@ class GuiManager {
             }
         ]
 
-        this.TabIndicator := Theme.Add(this.MainGui, "Text", "x0 y23 w" this.TabWidth " h2 BackgroundAccent") ; 选中指示线（绝对 x0，避免 Section 锚到第 5 个标签 x720 处溢出）
+        this.TabIndicator := Theme.Add(this.MainGui, "Text", "x0 y23 w" this.TabWidth " h2 BackgroundAccent +E0x20") ; 双缓冲下延后绘制，避免被重叠标签背景遮挡
         Theme.Add(this.MainGui, "Text", "x0 y25 w" this.GuiWidth " h1 BackgroundBorder") ; 分割线
         ; 标签数 ≠ 4 时（新增/隐藏标签），创建期立即按实际可见数等分布局，
         ; 避免首显前窗口宽度按 TabWidth(180) × 标签数计算导致顶部溢出/整窗变宽。
@@ -335,7 +337,7 @@ class GuiManager {
         ; 列栅格：C 输入框与右侧按键 Edit 列对齐（x515 w140），复选框贴其左侧（右缘 500），
         ; 复选框文案向右延伸时自动左移，任何语言都不会越窗。
         autoBeginW := Metrics.TextWidth(I18n.T(" 开局自动暂停"))
-        checkboxAutoBeginPause := this.MainGui.Add("Checkbox", "x" (500 - autoBeginW - 20) " yp-2 h24 vAutoBeginPause", I18n.T(" 开局自动暂停"))
+        checkboxAutoBeginPause := Theme.Add(this.MainGui, "Checkbox", "x" (500 - autoBeginW - 20) " yp-2 h24 vAutoBeginPause", I18n.T(" 开局自动暂停"))
         checkboxAutoBeginPause.OnEvent("Click", (*) => this.TrackChange("AutoBeginPause"))
         StatusBarHints.Register(checkboxAutoBeginPause, "进入关卡时自动按下暂停，按下绑定的快捷键可切换功能启用或停用")
         this.MainGui["AutoBeginPause"].Value := Config.GetImportant("AutoBeginPause")
@@ -818,11 +820,11 @@ class GuiManager {
                 " w" this.TabManagerRowWidth " h26 BackgroundSelected +0x100")
             tabItem.RowHighlight.Visible := false
             tabItem.DragControl := Theme.Add(this.MainGui, "Text", "x" (this.TabManagerX + 9) " y" (rowY + 4)
-                " w24 h18 Center cGrip +0x100", "⋮⋮")
+                " w24 h18 Center cGrip BackgroundTrans +0x100", "⋮⋮")
             tabItem.ManagerLabel := Theme.Add(this.MainGui, "Text", "x" (this.TabManagerX + 40) " y" (rowY + 4)
-                " w150 h18 +0x100", tabItem.Label)
+                " w150 h18 BackgroundTrans +0x100", tabItem.Label)
             tabItem.EyeControl := Theme.Add(this.MainGui, "Text", "x" (this.TabManagerX + 201) " y" (rowY + 4)
-                " w24 h18 Center +0x100", Chr(0xE890))
+                " w24 h18 Center BackgroundTrans +0x100", Chr(0xE890))
             Theme.SetFont(tabItem.EyeControl, "s11 cAccent", "Segoe MDL2 Assets")
             ; 悬停说明：行区域（含拖拽手柄/高亮层）与眼睛图标分开说明
             StatusBarHints.Register(tabItem.RowBackground, "拖拽调整顶部标签页的显示顺序")
@@ -2036,7 +2038,20 @@ class GuiManager {
             ; （不依赖"闭眼"字形——MDL2 无此字形，E9CE/E8F4 等均不可靠，可能显示为问号。）
             tabItem.EyeControl.Text := Chr(0xE890)
             Theme.SetFont(tabItem.EyeControl, tabItem.Visible ? "s11 cAccent" : "s11 cMuted", "Segoe MDL2 Assets")
+            ; 双缓冲按实际 Z 序合成：背景低于高亮，高亮低于文字与命中控件。
+            ; 仅调整 Z 序，保留拖动和眼睛点击依赖的 HWND、位置与尺寸。
+            for ctrl in [tabItem.RowHighlight, tabItem.RowBackground]
+                this._SetOverlayZ(ctrl, 1)
+            for ctrl in [tabItem.DragControl, tabItem.ManagerLabel, tabItem.EyeControl]
+                this._SetOverlayZ(ctrl, 0)
         }
+    }
+
+    ; HWND_TOP=0 / HWND_BOTTOM=1；0x13 = NOMOVE | NOSIZE | NOACTIVATE。
+    static _SetOverlayZ(ctrl, insertAfter) {
+        if !DllCall("user32\SetWindowPos", "Ptr", ctrl.Hwnd, "Ptr", insertAfter,
+            "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
+            Theme._WarnOnce("OverlayZ", "调整双缓冲叠层失败，win32=" A_LastError)
     }
 
     static RegisterTabManagerMouseHandlers() {
@@ -2237,6 +2252,7 @@ class GuiManager {
             this.TxtOther.GetPos(&x)
             this.TabIndicator.Move(x, 23)
         }
+        this._SetOverlayZ(this.TabIndicator, 0)
         this.TabIndicator.Redraw()
     }
 
@@ -2309,6 +2325,9 @@ class GuiManager {
         targetIndex := info[2]
         for i, indicator in this.NavIndicators {
             try indicator.Visible := (i = targetIndex)
+            ; 与顶部强调线一致：双缓冲下置于导航文字背景之上，不改变位置或焦点。
+            if (i = targetIndex)
+                this._SetOverlayZ(indicator, 0)
         }
 
         ; 隐藏所有分类控件

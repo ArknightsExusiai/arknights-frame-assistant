@@ -35,11 +35,8 @@ class CustomKeyEditor {
         this.GuiObj := Gui(, I18n.T("编辑按键"))
         this.GuiObj.MarginX := 20
         this.GuiObj.MarginY := 20
-        ; 样式对齐主设置窗口：白底 + 亮色标题栏（DWM 属性与 GuiManager.Init 一致）
+        ; 窗口与标题栏均交给 Theme，避免建窗后用固定浅色覆盖当前主题。
         Theme.Attach(this.GuiObj)
-        hWnd := this.GuiObj.Hwnd
-        try DllCall("dwmapi\DwmSetWindowAttribute", "ptr", hWnd, "int", 20, "int*", false, "int", 4)
-        try DllCall("dwmapi\DwmSetWindowAttribute", "ptr", hWnd, "int", 35, "uint*", 0x00FFFFFF, "int", 4)
         Theme.SetFont(this.GuiObj, "s9", Metrics.FontFor(I18n.GetCurrent()))
 
         ; 按键命名

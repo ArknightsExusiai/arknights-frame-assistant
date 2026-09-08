@@ -58,7 +58,7 @@ class UpdateUI {
         Theme.Attach(this.UpdateDialog)
         Theme.SetFont(this.UpdateDialog, "s9", Metrics.FontFor(I18n.GetCurrent()))
         hWnd := this.UpdateDialog.Hwnd
-        try DllCall("dwmapi\DwmSetWindowAttribute", "ptr", hWnd, "int", 38, "int*", true, "int", 4)
+        Theme.SetWindowAttribute(hWnd, Theme.DWMWA_SYSTEMBACKDROP_TYPE, Theme.DWMSBT_NONE)
 
         if (isManual) {
             message := I18n.T("当前版本: {1}`n最新版本: {2}`n`n是否立即更新？", localVersion, remoteVersion)
@@ -201,7 +201,7 @@ class UpdateUI {
         Theme.Attach(this.DownloadingDialog)
         Theme.SetFont(this.DownloadingDialog, "s9", Metrics.FontFor(I18n.GetCurrent()))
         hWnd := this.DownloadingDialog.Hwnd
-        try DllCall("dwmapi\DwmSetWindowAttribute", "ptr", hWnd, "int", 38, "int*", true, "int", 4)
+        Theme.SetWindowAttribute(hWnd, Theme.DWMWA_SYSTEMBACKDROP_TYPE, Theme.DWMSBT_NONE)
 
         ; 根据重试次数显示不同消息（reason 存在时拼入提示；窗口高度按控件实际位置动态计算）
         if (retryCount = 0) {

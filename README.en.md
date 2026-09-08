@@ -252,3 +252,5 @@ The icon was created by **[文件名错误EXE](https://www.mihuashi.com/profiles
 Choose **Follow system**, **Light**, or **Dark** under **Other → Display → Interface theme**. The default follows the Windows app theme and updates automatically without restarting.
 
 Selections preview immediately. Save or Apply to keep the choice; Cancel restores the saved theme. Settings, key editing, announcements and update dialogs share the theme. System file pickers, tray menus and the debug console retain their existing appearance. Windows high-contrast colors take priority when enabled.
+
+The main settings window uses system double buffering. The theme layer adapts dark controls and preserves top and side selection indicators. Scrollbars in multiline fields retain system styling and may remain light. See the [theme compatibility notes](docs/win_docs/theme_api_compatibility.md).
