@@ -30,6 +30,7 @@ class GuiManager {
     static IsModified := false
     static HasHotkeyConflicts := false
     static _PrevConflictedControls := Map()  ; 上次冲突控件集合，用于增量字体更新
+    static _OverlayZWarned := false  ; 双缓冲叠层调整失败仅告警一次
     static _InitialValues := Map()  ; 初始值快照，用于脏值对比
     static HintUnsaved := ""       ; 提示文字
     static IsOnStrongHoldProtocol := false
@@ -2064,10 +2065,15 @@ class GuiManager {
     }
 
     ; HWND_TOP=0 / HWND_BOTTOM=1；0x13 = NOMOVE | NOSIZE | NOACTIVATE。
+    ; 叠层顺序由本窗口自己的 WS_EX_COMPOSITED 引入，故告警在此自带一次性去重（不借用 Theme 私有方法）。
     static _SetOverlayZ(ctrl, insertAfter) {
         if !DllCall("user32\SetWindowPos", "Ptr", ctrl.Hwnd, "Ptr", insertAfter,
-            "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
-            Theme._WarnOnce("OverlayZ", "调整双缓冲叠层失败，win32=" A_LastError)
+            "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13) {
+            if !this._OverlayZWarned {
+                this._OverlayZWarned := true
+                Logger.Warn("Gui", "调整双缓冲叠层失败，win32=" A_LastError)
+            }
+        }
     }
 
     static RegisterTabManagerMouseHandlers() {
