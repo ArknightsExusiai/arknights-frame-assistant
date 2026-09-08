@@ -175,7 +175,7 @@ CheckGameProcess(process_name) {
 ```bash
 git checkout develop
 git pull upstream develop
-   git checkout -b feat/your-feature-name
+git checkout -b feat/your-feature-name
 ```
 
 分支命名规范：
