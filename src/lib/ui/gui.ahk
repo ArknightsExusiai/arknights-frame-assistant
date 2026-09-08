@@ -1276,6 +1276,9 @@ class GuiManager {
             this._LanguageChanged := false
             this.Hide()
             this.Rebuild()
+            ; 语言切换重建窗口后必须对新窗口复位脏状态并重建快照，否则重开窗口会误报"修改尚未保存或应用"
+            this.SetIsModifiedFalse()
+            this.CaptureInitialSnapshot()
             this.Hide()
             return
         }
@@ -1290,6 +1293,9 @@ class GuiManager {
         if (this._LanguageChanged) {
             this._LanguageChanged := false
             this.Rebuild()
+            ; 同上：重建窗口后脏状态与快照一并复位
+            this.SetIsModifiedFalse()
+            this.CaptureInitialSnapshot()
             return
         }
         this.CommitTabSettings()
