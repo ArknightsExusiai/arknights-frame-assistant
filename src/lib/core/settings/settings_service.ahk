@@ -77,23 +77,24 @@ class SettingsService {
 
     ; 处理热键动作发布的单键设置变更请求
     static _HandleSettingsValueChangeRequested(data) {
-        if (data.key != "AutoBeginPause")
+        if (data.key != "AutoBeginPause" && data.key != "AutoBeginSpeed")
             return
+        isSpeed := (data.key = "AutoBeginSpeed")
         result := this.UpdatePersistedValue(data.key, data.value)
         if (!result.success) {
             Logger.Warn("Settings", "单键设置写入失败：" result.message)
             return
         }
-        Logger.Info("Settings", "切换开局自动暂停 → " (data.value = "1" ? "开" : "关"))
+        Logger.Info("Settings", (isSpeed ? "切换开局自动二倍速 → " : "切换开局自动暂停 → ") (data.value = "1" ? "开" : "关"))
         if (data.value = "1") {
             HideTrayTip()
             SetTimer HideTrayTip, 0
-            ShowTrayTip(I18n.T("已开启开局自动暂停"), "AFA", "Mute")
+            ShowTrayTip(I18n.T(isSpeed ? "已开启开局自动二倍速" : "已开启开局自动暂停"), "AFA", "Mute")
             SetTimer HideTrayTip, -3000
         } else {
             HideTrayTip()
             SetTimer HideTrayTip, 0
-            ShowTrayTip(I18n.T("已关闭开局自动暂停"), "AFA", "Mute")
+            ShowTrayTip(I18n.T(isSpeed ? "已关闭开局自动二倍速" : "已关闭开局自动暂停"), "AFA", "Mute")
             SetTimer HideTrayTip, -3000
         }
     }
