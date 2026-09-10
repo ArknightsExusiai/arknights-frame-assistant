@@ -1303,6 +1303,8 @@ class GuiManager {
         this.CommitTabSettings()
         this.SetIsModifiedFalse()
         this.CaptureInitialSnapshot()
+        ; 保存/应用流程可能清理了无效路径记录（只改内存工作副本），两个游戏路径控件都要同步回读
+        this._RefreshGamePathControls()
         this.Hide()
     }
 
@@ -1319,6 +1321,8 @@ class GuiManager {
         this.CommitTabSettings()
         this.SetIsModifiedFalse()
         this.CaptureInitialSnapshot()
+        ; 同 _OnSettingsSaved：应用后两个游戏路径控件同步回读（应用分支窗口保留，最能看出是否及时刷新）
+        this._RefreshGamePathControls()
     }
 
     ; 处理设置已取消
@@ -1400,6 +1404,14 @@ class GuiManager {
             this.ServerPathsText.Value := this._BuildServerPathsText()
     }
 
+    ; 同步“游戏路径”相关控件（旧 GamePath 输入框 + 已识别区服路径总览）。
+    ; 保存/应用流程可能清理了无效路径记录（只改 Config 内存工作副本，不发布事件），
+    ; 若不同步回读，界面会继续显示已被清除的路径，直到取消设置或重启 AFA 才更新。
+    static _RefreshGamePathControls() {
+        this.SetControlValue("GamePath", Config.GetImportant("GamePath"))
+        this._RefreshServerPathsText()
+    }
+
     ; 生成“当前运行客户端”多行文本
     static _BuildRunningClientsText() {
         clients := GameClientRegistry.GetClients()
@@ -1439,7 +1451,7 @@ class GuiManager {
         this._UpdateImportantControlsFromConfig()
         this._UpdateCustomControlsFromConfig()
         this._RefreshCustomHotkeyRows()
-        this._RefreshServerPathsText()
+        this._RefreshGamePathControls()
         this._RefreshRunningClientsText()
     }
 

@@ -205,30 +205,42 @@ class SettingsService {
         }
 
         ; 验证游戏路径（旧 GamePath + 按区服路径）
-        pathsToValidate := [Config.GetImportant("GamePath")]
-        for serverId in ServerProfile.Ids() {
-            key := "GamePath" serverId
-            value := Config.GetImportant(key)
-            if (value != "")
-                pathsToValidate.Push(value)
-        }
-        for gamePath in pathsToValidate {
-            if (gamePath = "")
+        ; 区服键在 GUI 中只有只读总览、没有编辑入口，文件被删后用户无从清除，
+        ; 故此处对“文件不存在”只询问、不硬拒：确认后清掉记录继续保存，否则中止。
+        missingEntries := []
+        missingPaths := []
+        pathEntries := []   ; {key, path, serverId}，只保留非空配置项供后续区服校验
+        for entry in ServerProfile.AllGamePathEntries() {
+            value := Config.GetImportant(entry.key)
+            if (value = "")
                 continue
-            if !FileExist(gamePath) {
-                ; 严格拒绝：不存在的路径不落盘（需修正后再次保存）
-                MessageBox.Error(I18n.T("游戏路径不存在：`n{1}`n`n请修正路径后再保存。", gamePath), I18n.T("路径不存在"))
-                Logger.Warn("Settings", "保存中止：游戏路径不存在：" gamePath)
+            if !FileExist(value) {
+                missingEntries.Push(entry)
+                missingPaths.Push(value)
+                continue
+            }
+            pathEntries.Push({key: entry.key, path: value, serverId: entry.serverId})
+        }
+        if (missingEntries.Length > 0) {
+            if (MessageBox.Confirm(this._BuildMissingPathsPrompt(missingEntries, missingPaths), I18n.T("路径不存在")) != "Yes") {
+                Logger.Warn("Settings", "保存中止：用户选择自行修正无效路径，共 " missingEntries.Length " 条")
                 return false
             }
-            info := ServerProfile.FromExePath(gamePath)
+            ; 仅清内存工作副本：跟随后续 SaveAllToIni 一起落盘，
+            ; 保存中途失败或用户取消时不会出现“没保存却改了配置”。
+            for entry in missingEntries
+                Config.SetImportant(entry.key, "")
+            Logger.Info("Settings", "已清除 " missingEntries.Length " 条失效游戏路径记录：" this._BuildMissingPathsLines(missingEntries, missingPaths))
+        }
+        for item in pathEntries {
+            info := ServerProfile.FromExePath(item.path)
             if (info.serverId = "" || info.serverId = "Unknown") {
                 ; 严格拒绝：无法确认是明日方舟可执行文件时不落盘
-                MessageBox.Error(I18n.T("游戏路径不正确：`n{1}`n`n目标文件不是明日方舟可执行文件（Arknights.exe），请修正后再保存。", gamePath), I18n.T("路径不正确"))
-                Logger.Warn("Settings", "保存中止：无法从路径推断区服：" gamePath)
+                MessageBox.Error(I18n.T("游戏路径不正确：`n{1}`n`n目标文件不是明日方舟可执行文件（Arknights.exe），请修正后再保存。", item.path), I18n.T("路径不正确"))
+                Logger.Warn("Settings", "保存中止：无法从路径推断区服：" item.path)
                 return false
             }
-            Logger.Info("Settings", "游戏路径区服识别：" info.serverId " - " gamePath)
+            Logger.Info("Settings", "游戏路径区服识别：" info.serverId " - " item.path)
         }
 
         ; 应用“启动游戏时自动启动AFA”设置
@@ -323,6 +335,23 @@ class SettingsService {
             return false
         }
         return true
+    }
+
+    ; 无效路径多行文本（“区服名: 路径”，旧 GamePath 无区服名只列路径）。
+    ; 必须拼成单个字符串再传：I18n.T → Format 不接受数组参数。
+    static _BuildMissingPathsLines(missingEntries, missingPaths) {
+        lines := ""
+        for i, entry in missingEntries {
+            label := entry.name != "" ? entry.name ": " : ""
+            lines .= (lines = "" ? "" : "`n") label missingPaths[i]
+        }
+        return lines
+    }
+
+    ; 无效路径询问文案：保留路径换行安全前提（选“是”才会清除配置）
+    static _BuildMissingPathsPrompt(missingEntries, missingPaths) {
+        return I18n.T("以下游戏路径已不存在：`n{1}`n`n是否清除这些路径记录并继续保存？",
+            this._BuildMissingPathsLines(missingEntries, missingPaths))
     }
 
     ; 重置游戏状态
