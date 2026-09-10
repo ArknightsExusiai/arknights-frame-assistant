@@ -42,6 +42,22 @@ class ServerProfile {
         return result
     }
 
+    ; 全部游戏路径配置项的有序列表（旧 GamePath 在前，其后按 Order 的 GamePath<Id>）。
+    ; 供「保存校验」与「识别前清理」共用，保证两处判定范围一致。
+    ; 返回数组元素：{key, serverId, name（区服显示名，旧 GamePath 为 ""）}
+    static AllGamePathEntries() {
+        entries := [{key: "GamePath", serverId: "", name: ""}]
+        for serverId in this.Ids() {
+            profile := this.Get(serverId)
+            entries.Push({
+                key: "GamePath" serverId,
+                serverId: serverId,
+                name: profile != "" ? I18n.T(profile.DisplayNameKey) : serverId
+            })
+        }
+        return entries
+    }
+
     ; 从可执行文件完整路径推断区服。
     ; 返回对象：{serverId, company, product, registryRoot, source}
     ; 识别顺序：
@@ -55,8 +71,16 @@ class ServerProfile {
             return this._Unknown("", "")
 
         SplitPath(exePath, &fileName, &exeDir)
-        if (StrLower(fileName) != "arknights.exe")
-            exeDir := exePath  ; 调用方可能直接传入游戏目录
+        if (StrLower(fileName) != StrLower(this.ExeName)) {
+            ; 文件名不匹配时只有“确实是目录”才按目录继续（FromGameDir 的语义）；
+            ; 其余（如 notepad.exe）直接判 Unknown——否则 exeDir 会被当成目录继续走，
+            ; 而第 3 步注册表兜底只看本机是否有某服按键设置、与传入路径无关，
+            ; 会让任何存在的文件都被判成已安装的那个区服。
+            if (FileExist(exePath) && InStr(FileExist(exePath), "D"))
+                exeDir := exePath
+            else
+                return this._Unknown("", "")
+        }
 
         ; 1. 安装目录特征（BILI 与 CN 共用 app.info，目录特征先行；按 Order 显式顺序遍历）
         for serverId in this.Order {
