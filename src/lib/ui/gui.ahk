@@ -110,7 +110,7 @@ class GuiManager {
     ; 具有对应 GUI 控件的 Important 设置；不直接遍历 Config.AllImportant，后者还包含内部字段
     static GuiImportantKeys := ["Frame", "AutoExit", "AutoOpenSettings", "ExitOnWindowClose",
         "DefaultStrongHoldProtocol", "TabOrder", "HiddenTabs", "AutoRunGame", "AutoStartWithGame", "GamePath",
-        "UpdateChannel", "UpdateSource", "AutoUpdate", "UseGitHubToken", "GitHubToken", "AutoBeginPause",
+        "UpdateChannel", "UpdateSource", "AutoUpdate", "UseGitHubToken", "GitHubToken", "AutoBeginPause", "AutoBeginSpeed",
         "BackCeaseOperations", "InLevelGuard", "DebugEnabled", "Language", "ThemeMode"]
 
     ; 初始化GUI（单例模式）
@@ -365,6 +365,23 @@ class GuiManager {
         StatusBarHints.Register(checkboxCombatGuard, "识别关卡界面，在关卡界面外禁用常规作战热键，避免误触发")
         this.MainGui["InLevelGuard"].Value := Config.GetImportant("InLevelGuard")
         this.KeybindControls.Push(checkboxCombatGuard)
+
+        ; 开局自动二倍速开关（仅"常规作战"页显示）。放在"仅在关卡内启用"复选框所在行的**左列**：
+        ; InLevelGuard 复选框已被 Move 到该行右侧（x≈Min(cbPauseX,708-宽)），故左侧为空位，二者清晰分离不重叠。
+        ; 切换热键 Edit 对齐左列按键栅格 x155（正好位于上方"游戏内帧率"下拉框 GuiFrame 正下方）；
+        ; 复选框**右对齐**到左列标签右缘（文案右缘≈135，与"游戏内帧率"标签右缘对齐，不贴左边框），
+        ; 16≈勾选框图标宽，用 Max(0,…) 钳制防止超长文案越出左窗缘。
+        ; Edit 先建、h24 复选框后建：让复选框成为本行最后一个控件，保持帧率提示语 y+15 的锚点与改动前一致（底部按钮不位移）。
+        autoBeginSpeedW := Metrics.TextWidth(I18n.T(" 开局自动二倍速"))
+        editAutoBeginSpeedSwitch := Theme.Add(this.MainGui, "Edit", "x155 y" cbGY " w140 Center -TabStop Uppercase v" "AutoBeginSpeedSwitch",
+            Config.GetHotkey("AutoBeginSpeedSwitch"))
+        StatusBarHints.Register(editAutoBeginSpeedSwitch, "按下后切换开局自动二倍速的启用/禁用")
+        this.KeybindControls.Push(editAutoBeginSpeedSwitch)
+        checkboxAutoBeginSpeed := Theme.Add(this.MainGui, "Checkbox", "x" Max(0, 117 - autoBeginSpeedW) " y" cbGY " h24 vAutoBeginSpeed", I18n.T(" 开局自动二倍速"))
+        checkboxAutoBeginSpeed.OnEvent("Click", (*) => this.TrackChange("AutoBeginSpeed"))
+        StatusBarHints.Register(checkboxAutoBeginSpeed, "进入关卡时自动切换到二倍速")
+        this.MainGui["AutoBeginSpeed"].Value := Config.GetImportant("AutoBeginSpeed")
+        this.KeybindControls.Push(checkboxAutoBeginSpeed)
 
         ; 帧数设置提示语
         Theme.SetFont(this.MainGui, "s9 cAccent")
@@ -1156,7 +1173,7 @@ class GuiManager {
     static _GetSchemaItems(group) {
         result := []
         for item in HotkeySchema.Items {
-            if (item.group = group && item.id != "AutoBeginPauseSwitch")
+            if (item.group = group && item.id != "AutoBeginPauseSwitch" && item.id != "AutoBeginSpeedSwitch")
                 result.Push(item)
         }
         return result
@@ -1340,6 +1357,10 @@ class GuiManager {
             }
             if (data.key = "AutoBeginPause") {
                 this.MainGui["AutoBeginPause"].Value := (data.value = "1" || data.value = 1) ? 1 : 0
+                return
+            }
+            if (data.key = "AutoBeginSpeed") {
+                this.MainGui["AutoBeginSpeed"].Value := (data.value = "1" || data.value = 1) ? 1 : 0
                 return
             }
             if (data.key = "ThemeMode") {
