@@ -372,12 +372,12 @@ class GuiManager {
         ; 复选框**右对齐**到左列标签右缘（文案右缘≈135，与"游戏内帧率"标签右缘对齐，不贴左边框），
         ; 16≈勾选框图标宽，用 Max(0,…) 钳制防止超长文案越出左窗缘。
         ; Edit 先建、h24 复选框后建：让复选框成为本行最后一个控件，保持帧率提示语 y+15 的锚点与改动前一致（底部按钮不位移）。
-        autoBeginSpeedW := Metrics.TextWidth(I18n.T(" 切换开局自动二倍速"))
+        autoBeginSpeedW := Metrics.TextWidth(I18n.T(" 开局自动二倍速"))
         editAutoBeginSpeedSwitch := Theme.Add(this.MainGui, "Edit", "x155 y" cbGY " w140 Center -TabStop Uppercase v" "AutoBeginSpeedSwitch",
             Config.GetHotkey("AutoBeginSpeedSwitch"))
         StatusBarHints.Register(editAutoBeginSpeedSwitch, "按下后切换开局自动二倍速的启用/禁用")
         this.KeybindControls.Push(editAutoBeginSpeedSwitch)
-        checkboxAutoBeginSpeed := Theme.Add(this.MainGui, "Checkbox", "x" Max(0, 120 - autoBeginSpeedW) " y" cbGY " h24 vAutoBeginSpeed", I18n.T(" 切换开局自动二倍速"))
+        checkboxAutoBeginSpeed := Theme.Add(this.MainGui, "Checkbox", "x" Max(0, 117 - autoBeginSpeedW) " y" cbGY " h24 vAutoBeginSpeed", I18n.T(" 开局自动二倍速"))
         checkboxAutoBeginSpeed.OnEvent("Click", (*) => this.TrackChange("AutoBeginSpeed"))
         StatusBarHints.Register(checkboxAutoBeginSpeed, "进入关卡时自动切换到二倍速")
         this.MainGui["AutoBeginSpeed"].Value := Config.GetImportant("AutoBeginSpeed")

@@ -120,7 +120,7 @@ class LocaleEnUS {
         "为避免冲突，切换到此页面时“常规作战”、“快捷操作”按键将被禁用", "To avoid conflicts, Combat and Quick keys are disabled on this page",
         "游戏内帧率", "In-Game Frame Rate",
         " 开局自动暂停", " Auto Begin Pause",
-        " 切换开局自动二倍速", " Auto Begin Speed",
+        " 开局自动二倍速", " Auto Begin Speed",
         " 使用“返回上级菜单”放弃行动", " Use Back to Cease Operations",
         " 仅在关卡内启用常规作战热键（实验性）", " Enable hotkeys only in levels (experimental)",
         "若开启了游戏内的“垂直同步”，请确保上方“游戏内帧率”设置与你的屏幕刷新率保持一致", "If V-Sync is enabled in-game, keep the In-Game Frame Rate above matching your monitor refresh rate",
