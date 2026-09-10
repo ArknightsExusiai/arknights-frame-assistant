@@ -207,6 +207,8 @@ class SettingsService {
         ; 验证游戏路径（旧 GamePath + 按区服路径）
         ; 区服键在 GUI 中只有只读总览、没有编辑入口，文件被删后用户无从清除，
         ; 故此处对“文件不存在”只询问、不硬拒：确认后清掉记录继续保存，否则中止。
+        ; 目录不算“文件不存在”（路径本身还在），仍走下方“路径不正确”硬拒——
+        ; 与 GameAutoStartManager.ValidateGamePath 的要求一致：配置项必须是 Arknights.exe 文件。
         missingEntries := []
         missingPaths := []
         pathEntries := []   ; {key, path, serverId}，只保留非空配置项供后续区服校验
@@ -214,11 +216,13 @@ class SettingsService {
             value := Config.GetImportant(entry.key)
             if (value = "")
                 continue
-            if !FileExist(value) {
+            attrs := FileExist(value)
+            if (attrs = "") {
                 missingEntries.Push(entry)
                 missingPaths.Push(value)
                 continue
             }
+            ; 非空且存在的配置项（含目录）：后面统一用 FromExePath 判是否为 Arknights.exe
             pathEntries.Push({key: entry.key, path: value, serverId: entry.serverId})
         }
         if (missingEntries.Length > 0) {
@@ -226,11 +230,9 @@ class SettingsService {
                 Logger.Warn("Settings", "保存中止：用户选择自行修正无效路径，共 " missingEntries.Length " 条")
                 return false
             }
-            ; 仅清内存工作副本：跟随后续 SaveAllToIni 一起落盘，
-            ; 保存中途失败或用户取消时不会出现“没保存却改了配置”。
-            for entry in missingEntries
-                Config.SetImportant(entry.key, "")
-            Logger.Info("Settings", "已清除 " missingEntries.Length " 条失效游戏路径记录：" this._BuildMissingPathsLines(missingEntries, missingPaths))
+            ; 这里只记录用户已确认的清理意图，真正改内存工作副本推迟到落盘前（见下方 _ClearConfirmedPaths）：
+            ; 若后续校验/外部设置/落盘失败而保存中止，内存仍与磁盘一致，不会出现
+            ; “没保存却先把记录清了”，也不会让用户取消时反而把已删记录恢复回来。
         }
         for item in pathEntries {
             info := ServerProfile.FromExePath(item.path)
@@ -261,6 +263,9 @@ class SettingsService {
         }
 
         ; 保存到 INI（全量保存 Config 工作副本；单键场景请走 UpdatePersistedValue）
+        ; 用户已确认的失效路径清理在此提交：此前任何一步失败都不会改动内存工作副本。
+        this._ClearConfirmedPaths(missingEntries, missingPaths)
+
         ; 主题最后提交：自定义按键文件失败时，不把仍处于预览的主题提前落盘。
         themeMode := Config.GetImportant("ThemeMode")
         savedThemeMode := Config.ReadImportantFromIni("ThemeMode")
@@ -335,6 +340,17 @@ class SettingsService {
             return false
         }
         return true
+    }
+
+    ; 提交用户已确认的失效路径清理：清空内存工作副本并记录日志。
+    ; 调用点必须在其余校验与外部设置之后、SaveAllToIni 之前——这样保存中止时不改动内存，
+    ; 内存与磁盘始终一致（清空值随本次 SaveAllToIni 一次落盘）。
+    static _ClearConfirmedPaths(missingEntries, missingPaths) {
+        if (missingEntries.Length = 0)
+            return
+        for entry in missingEntries
+            Config.SetImportant(entry.key, "")
+        Logger.Info("Settings", "已清除 " missingEntries.Length " 条失效游戏路径记录：" this._BuildMissingPathsLines(missingEntries, missingPaths))
     }
 
     ; 无效路径多行文本（“区服名: 路径”，旧 GamePath 无区服名只列路径）。

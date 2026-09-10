@@ -99,6 +99,8 @@ class GameLauncher {
             reason := ""
             if !FileExist(path)
                 reason := I18n.T("路径不存在")
+            else if InStr(FileExist(path), "D")
+                reason := I18n.T("路径不正确")   ; 目录不是可执行文件
             else {
                 info := ServerProfile.FromExePath(path)
                 if (info.serverId = "" || info.serverId = "Unknown")

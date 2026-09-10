@@ -72,14 +72,11 @@ class ServerProfile {
 
         SplitPath(exePath, &fileName, &exeDir)
         if (StrLower(fileName) != StrLower(this.ExeName)) {
-            ; 文件名不匹配时只有“确实是目录”才按目录继续（FromGameDir 的语义）；
-            ; 其余（如 notepad.exe）直接判 Unknown——否则 exeDir 会被当成目录继续走，
-            ; 而第 3 步注册表兜底只看本机是否有某服按键设置、与传入路径无关，
-            ; 会让任何存在的文件都被判成已安装的那个区服。
-            if (FileExist(exePath) && InStr(FileExist(exePath), "D"))
-                exeDir := exePath
-            else
-                return this._Unknown("", "")
+            ; 本方法只接受“名为 Arknights.exe 的文件”；调用方传入游戏目录时请用 FromGameDir。
+            ; 不能容忍其他输入形式：传入目录或以反斜杠结尾时 SplitPath 会让 fileName 为空，
+            ; 于是校验被绕过，且后续第 3 步注册表兜底只看本机有没有某服按键设置、与传入路径无关，
+            ; 会把 C:\Windows\System32 这类无关目录判成已安装的那个区服。
+            return this._Unknown("", "")
         }
 
         ; 1. 安装目录特征（BILI 与 CN 共用 app.info，目录特征先行；按 Order 显式顺序遍历）
@@ -140,11 +137,13 @@ class ServerProfile {
         return this._Unknown("", "")
     }
 
-    ; 从游戏目录（含 Arknights.exe 的目录）推断区服
+    ; 从游戏目录（含 Arknights.exe 的目录）推断区服；传目录的调用方用这个方法
     static FromGameDir(gameDir) {
         if (gameDir = "")
             return this._Unknown("", "")
-        return this.FromExePath(gameDir "\Arknights.exe")
+        ; 去掉结尾反斜杠，避免拼出双反斜杠；FromExePath 只接受 exe 文件路径
+        gameDir := RTrim(gameDir, "\")
+        return this.FromExePath(gameDir "\" this.ExeName)
     }
 
     ; 根据 serverId 返回注册表根；Unknown 或未知 id 返回 ""
