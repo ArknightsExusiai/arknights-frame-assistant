@@ -315,10 +315,11 @@ class SettingsService {
         }
         appliedGamePaths := collect.paths
         if (enabled && appliedGamePaths.Length = 0) {
-            ; 一条有效路径都没有（例如用户刚确认清掉最后一条失效路径）：
-            ; 随游戏自启无对象可订阅，继续报错会把保存卡成死循环，故改为关闭自启并继续保存。
-            Logger.Info("Settings", "无有效游戏路径，随游戏自动启动已自动关闭")
-            enabled := false
+            ; 一条有效路径都没有（例如用户刚确认清掉最后一条失效路径）：只记录日志、跳过计划任务
+            ; 的创建/删除，且**不改动开关**——保留「随游戏自动启动AFA」的勾选状态，
+            ; 用户后续识别或填入游戏路径后无需重新开启（任务由下次启动的 Reconcile 按新路径重建）。
+            Logger.Info("Settings", "无有效路径：跳过随游戏自动启动的计划任务创建")
+            return true
         }
 
         if (enabled && Config.GetImportant("AutoStartWithGame") != "1") {
@@ -332,9 +333,6 @@ class SettingsService {
             MessageBox.Error(result.message, enabled ? I18n.T("启用随游戏自动启动失败") : I18n.T("关闭随游戏自动启动失败"))
             return false
         }
-        ; 上一步因“无有效路径”自动降级为关闭时，把开关一并落盘（本次 SaveAllToIni 会写入）
-        if (!enabled && Config.GetImportant("AutoStartWithGame") = "1")
-            Config.SetImportant("AutoStartWithGame", "0")
         return true
     }
 
