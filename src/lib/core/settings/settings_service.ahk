@@ -205,34 +205,55 @@ class SettingsService {
         }
 
         ; 验证游戏路径（旧 GamePath + 按区服路径）
-        pathsToValidate := [Config.GetImportant("GamePath")]
-        for serverId in ServerProfile.Ids() {
-            key := "GamePath" serverId
-            value := Config.GetImportant(key)
-            if (value != "")
-                pathsToValidate.Push(value)
-        }
-        for gamePath in pathsToValidate {
-            if (gamePath = "")
+        ; 区服键在 GUI 中只有只读总览、没有编辑入口，文件被删后用户无从清除，
+        ; 故此处对“文件不存在”只询问、不硬拒：确认后清掉记录继续保存，否则中止。
+        ; 目录不算“文件不存在”（路径本身还在），仍走下方“路径不正确”硬拒——
+        ; 与 GameAutoStartManager.ValidateGamePath 的要求一致：配置项必须是 Arknights.exe 文件。
+        missingEntries := []
+        missingPaths := []
+        pathEntries := []   ; {key, path, serverId}，只保留非空配置项供后续区服校验
+        for entry in ServerProfile.AllGamePathEntries() {
+            value := Config.GetImportant(entry.key)
+            if (value = "")
                 continue
-            if !FileExist(gamePath) {
-                ; 严格拒绝：不存在的路径不落盘（需修正后再次保存）
-                MessageBox.Error(I18n.T("游戏路径不存在：`n{1}`n`n请修正路径后再保存。", gamePath), I18n.T("路径不存在"))
-                Logger.Warn("Settings", "保存中止：游戏路径不存在：" gamePath)
+            attrs := FileExist(value)
+            if (attrs = "") {
+                missingEntries.Push(entry)
+                missingPaths.Push(value)
+                continue
+            }
+            ; 非空且存在的配置项（含目录）：后面统一用 FromExePath 判是否为 Arknights.exe
+            pathEntries.Push({key: entry.key, path: value, serverId: entry.serverId})
+        }
+        if (missingEntries.Length > 0) {
+            if (MessageBox.Confirm(this._BuildMissingPathsPrompt(missingEntries, missingPaths), I18n.T("路径不存在")) != "Yes") {
+                Logger.Warn("Settings", "保存中止：用户选择自行修正无效路径，共 " missingEntries.Length " 条")
                 return false
             }
-            info := ServerProfile.FromExePath(gamePath)
+            ; 这里只记录用户已确认的清理意图，真正改内存工作副本推迟到落盘前（见下方 _ClearConfirmedPaths）：
+            ; 若后续校验/外部设置/落盘失败而保存中止，内存仍与磁盘一致，不会出现
+            ; “没保存却先把记录清了”，也不会让用户取消时反而把已删记录恢复回来。
+        }
+        for item in pathEntries {
+            info := ServerProfile.FromExePath(item.path)
             if (info.serverId = "" || info.serverId = "Unknown") {
                 ; 严格拒绝：无法确认是明日方舟可执行文件时不落盘
-                MessageBox.Error(I18n.T("游戏路径不正确：`n{1}`n`n目标文件不是明日方舟可执行文件（Arknights.exe），请修正后再保存。", gamePath), I18n.T("路径不正确"))
-                Logger.Warn("Settings", "保存中止：无法从路径推断区服：" gamePath)
+                MessageBox.Error(I18n.T("游戏路径不正确：`n{1}`n`n目标文件不是明日方舟可执行文件（Arknights.exe），请修正后再保存。", item.path), I18n.T("路径不正确"))
+                Logger.Warn("Settings", "保存中止：无法从路径推断区服：" item.path)
                 return false
             }
-            Logger.Info("Settings", "游戏路径区服识别：" info.serverId " - " gamePath)
+            Logger.Info("Settings", "游戏路径区服识别：" info.serverId " - " item.path)
         }
 
-        ; 应用“启动游戏时自动启动AFA”设置
-        if (!this._ApplyGameAutoStart()) {
+        ; 应用“启动游戏时自动启动AFA”设置。
+        ; 自启校验必须看到“已确认清理后”的路径视图：否则用户刚确认删除的失效路径
+        ; 会被自启校验重新报成「游戏路径不存在或不是文件」，保存再次被挡住、点不动。
+        ; 这里临时清空内存取值（事务上仍保持“保存失败即还原”，见下）。
+        autoStartSnapshot := this._SnapshotPaths(missingEntries)
+        this._ClearConfirmedPaths(missingEntries)
+        autoStartOk := this._ApplyGameAutoStart()
+        this._RestorePaths(autoStartSnapshot)
+        if (!autoStartOk) {
             Logger.Warn("Settings", "保存中止：随游戏自动启动设置应用失败")
             return false
         }
@@ -249,6 +270,9 @@ class SettingsService {
         }
 
         ; 保存到 INI（全量保存 Config 工作副本；单键场景请走 UpdatePersistedValue）
+        ; 用户已确认的失效路径清理在此提交：此前任何一步失败都已在上面还原，内存与磁盘保持一致。
+        this._ClearConfirmedPaths(missingEntries)
+
         ; 主题最后提交：自定义按键文件失败时，不把仍处于预览的主题提前落盘。
         themeMode := Config.GetImportant("ThemeMode")
         savedThemeMode := Config.ReadImportantFromIni("ThemeMode")
@@ -259,6 +283,8 @@ class SettingsService {
             MessageBox.Error(saveResult.message, I18n.T("设置保存失败"))
             return false
         }
+        ; 落盘成功后才记清理日志：避免“日志说已清除、实际写入失败”的误导
+        this._LogConfirmedPathsCleared(missingEntries, missingPaths)
 
         ; 落盘自定义按键（独立文件；Settings.ini 成功后才写入，任一步失败都中止保存）
         customSaveResult := CustomHotkeyStore.Save(Config.AllCustomHotkeys)
@@ -283,38 +309,25 @@ class SettingsService {
             return true
 
         enabled := (Config.GetImportant("AutoStartWithGame") = 1 || Config.GetImportant("AutoStartWithGame") = "1")
-        appliedGamePaths := []
-        if (enabled) {
-            gamePaths := GameAutoStartManager.GetConfiguredGamePaths()
-            if (gamePaths.Length = 0)
-                gamePaths := [Config.GetImportant("GamePath")]
-            defaultGamePath := Config.GetImportant("GamePath")
-            for gamePath in gamePaths {
-                if (gamePath = "")
-                    continue
-                validation := GameAutoStartManager.ValidateGamePath(gamePath)
-                if (!validation.success) {
-                    MessageBox.Error(validation.message, I18n.T("无法启用随游戏自动启动"))
-                    return false
-                }
-                ; 只有当前路径就是用户指定的默认启动路径时，才更新 GamePath；
-                ; 其余区服路径只参与自启任务，不能覆盖默认启动路径。
-                if (gamePath = defaultGamePath) {
-                    Config.SetImportant("GamePath", validation.path)
-                    EventBus.Publish("GamePathNormalized", {path: validation.path})
-                }
-                appliedGamePaths.Push(validation.path)
-            }
-            if (appliedGamePaths.Length = 0) {
-                MessageBox.Error(I18n.T("请先设置至少一个游戏路径。"), I18n.T("无法启用随游戏自动启动"))
-                return false
-            }
+        collect := this._CollectAutoStartPaths(enabled)
+        if (collect.invalidMessage != "") {
+            ; 某条路径校验失败：保持既有行为——中止保存并提示具体原因
+            MessageBox.Error(collect.invalidMessage, I18n.T("无法启用随游戏自动启动"))
+            return false
+        }
+        appliedGamePaths := collect.paths
+        if (enabled && appliedGamePaths.Length = 0) {
+            ; 一条有效路径都没有（例如用户刚确认清掉最后一条失效路径）：只记录日志、跳过计划任务
+            ; 的创建/删除，且**不改动开关**——保留「随游戏自动启动AFA」的勾选状态，
+            ; 用户后续识别或填入游戏路径后无需重新开启（任务由下次启动的 Reconcile 按新路径重建）。
+            Logger.Info("Settings", "无有效路径：跳过随游戏自动启动的计划任务创建")
+            return true
+        }
 
-            if (Config.GetImportant("AutoStartWithGame") != "1") {
-                result := MessageBox.Confirm(I18n.T("启用此功能需要开启 Windows 的“进程创建成功审核”。`nWindows 将为进程启动记录安全日志；关闭此功能后，审核设置仍会保留。`n`n是否继续？"), I18n.T("启用随游戏自动启动"))
-                if (result = "No")
-                    return false
-            }
+        if (enabled && Config.GetImportant("AutoStartWithGame") != "1") {
+            result := MessageBox.Confirm(I18n.T("启用此功能需要开启 Windows 的“进程创建成功审核”。`nWindows 将为进程启动记录安全日志；关闭此功能后，审核设置仍会保留。`n`n是否继续？"), I18n.T("启用随游戏自动启动"))
+            if (result = "No")
+                return false
         }
 
         result := GameAutoStartManager.Apply(enabled, appliedGamePaths)
@@ -323,6 +336,83 @@ class SettingsService {
             return false
         }
         return true
+    }
+
+    ; 收集本次要写入自启任务的路径（规范化后的完整路径），返回 {paths, invalidMessage}。
+    ; 纯逻辑、不弹窗：便于抛给调用方决定提示文案，也便于脱离 GUI 验证。
+    ; invalidMessage 非空表示某条路径校验失败（调用方应中止并提示）。
+    static _CollectAutoStartPaths(enabled) {
+        result := {paths: [], invalidMessage: ""}
+        if (!enabled)
+            return result
+
+        gamePaths := GameAutoStartManager.GetConfiguredGamePaths()
+        if (gamePaths.Length = 0)
+            gamePaths := [Config.GetImportant("GamePath")]
+        defaultGamePath := Config.GetImportant("GamePath")
+        for gamePath in gamePaths {
+            if (gamePath = "")
+                continue
+            validation := GameAutoStartManager.ValidateGamePath(gamePath)
+            if (!validation.success) {
+                result.invalidMessage := validation.message
+                return result
+            }
+            ; 只有当前路径就是用户指定的默认启动路径时，才更新 GamePath；
+            ; 其余区服路径只参与自启任务，不能覆盖默认启动路径。
+            if (gamePath = defaultGamePath) {
+                Config.SetImportant("GamePath", validation.path)
+                EventBus.Publish("GamePathNormalized", {path: validation.path})
+            }
+            result.paths.Push(validation.path)
+        }
+        return result
+    }
+
+    ; 暂存若干配置项当前值，供“临时改内存后还原”使用（返回 Map(key → value)）
+    static _SnapshotPaths(entries) {
+        snapshot := Map()
+        for entry in entries
+            snapshot[entry.key] := Config.GetImportant(entry.key)
+        return snapshot
+    }
+
+    ; 还原 _SnapshotPaths 暂存的值
+    static _RestorePaths(snapshot) {
+        for key, value in snapshot
+            Config.SetImportant(key, value)
+    }
+
+    ; 清空用户已确认的失效路径（内存工作副本）。
+    ; 只做清空、不记日志：本流程会调用两次（自启校验前临时清、落盘前提交），
+    ; 日志由 _LogConfirmedPathsCleared 在提交后统一记一次，避免重复条目。
+    static _ClearConfirmedPaths(missingEntries) {
+        for entry in missingEntries
+            Config.SetImportant(entry.key, "")
+    }
+
+    ; 记录已提交的失效路径清理（提交后调用一次）
+    static _LogConfirmedPathsCleared(missingEntries, missingPaths) {
+        if (missingEntries.Length = 0)
+            return
+        Logger.Info("Settings", "已清除 " missingEntries.Length " 条失效游戏路径记录：" this._BuildMissingPathsLines(missingEntries, missingPaths))
+    }
+
+    ; 无效路径多行文本（“区服名: 路径”，旧 GamePath 无区服名只列路径）。
+    ; 必须拼成单个字符串再传：I18n.T → Format 不接受数组参数。
+    static _BuildMissingPathsLines(missingEntries, missingPaths) {
+        lines := ""
+        for i, entry in missingEntries {
+            label := entry.name != "" ? entry.name ": " : ""
+            lines .= (lines = "" ? "" : "`n") label missingPaths[i]
+        }
+        return lines
+    }
+
+    ; 无效路径询问文案：保留路径换行安全前提（选“是”才会清除配置）
+    static _BuildMissingPathsPrompt(missingEntries, missingPaths) {
+        return I18n.T("以下游戏路径已不存在：`n{1}`n`n是否清除这些路径记录并继续保存？",
+            this._BuildMissingPathsLines(missingEntries, missingPaths))
     }
 
     ; 重置游戏状态
