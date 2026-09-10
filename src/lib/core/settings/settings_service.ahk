@@ -245,8 +245,15 @@ class SettingsService {
             Logger.Info("Settings", "游戏路径区服识别：" info.serverId " - " item.path)
         }
 
-        ; 应用“启动游戏时自动启动AFA”设置
-        if (!this._ApplyGameAutoStart()) {
+        ; 应用“启动游戏时自动启动AFA”设置。
+        ; 自启校验必须看到“已确认清理后”的路径视图：否则用户刚确认删除的失效路径
+        ; 会被自启校验重新报成「游戏路径不存在或不是文件」，保存再次被挡住、点不动。
+        ; 这里临时清空内存取值（事务上仍保持“保存失败即还原”，见下）。
+        autoStartSnapshot := this._SnapshotPaths(missingEntries)
+        this._ClearConfirmedPaths(missingEntries, missingPaths)
+        autoStartOk := this._ApplyGameAutoStart()
+        this._RestorePaths(autoStartSnapshot)
+        if (!autoStartOk) {
             Logger.Warn("Settings", "保存中止：随游戏自动启动设置应用失败")
             return false
         }
@@ -263,7 +270,7 @@ class SettingsService {
         }
 
         ; 保存到 INI（全量保存 Config 工作副本；单键场景请走 UpdatePersistedValue）
-        ; 用户已确认的失效路径清理在此提交：此前任何一步失败都不会改动内存工作副本。
+        ; 用户已确认的失效路径清理在此提交：此前任何一步失败都已在上面还原，内存与磁盘保持一致。
         this._ClearConfirmedPaths(missingEntries, missingPaths)
 
         ; 主题最后提交：自定义按键文件失败时，不把仍处于预览的主题提前落盘。
@@ -300,38 +307,24 @@ class SettingsService {
             return true
 
         enabled := (Config.GetImportant("AutoStartWithGame") = 1 || Config.GetImportant("AutoStartWithGame") = "1")
-        appliedGamePaths := []
-        if (enabled) {
-            gamePaths := GameAutoStartManager.GetConfiguredGamePaths()
-            if (gamePaths.Length = 0)
-                gamePaths := [Config.GetImportant("GamePath")]
-            defaultGamePath := Config.GetImportant("GamePath")
-            for gamePath in gamePaths {
-                if (gamePath = "")
-                    continue
-                validation := GameAutoStartManager.ValidateGamePath(gamePath)
-                if (!validation.success) {
-                    MessageBox.Error(validation.message, I18n.T("无法启用随游戏自动启动"))
-                    return false
-                }
-                ; 只有当前路径就是用户指定的默认启动路径时，才更新 GamePath；
-                ; 其余区服路径只参与自启任务，不能覆盖默认启动路径。
-                if (gamePath = defaultGamePath) {
-                    Config.SetImportant("GamePath", validation.path)
-                    EventBus.Publish("GamePathNormalized", {path: validation.path})
-                }
-                appliedGamePaths.Push(validation.path)
-            }
-            if (appliedGamePaths.Length = 0) {
-                MessageBox.Error(I18n.T("请先设置至少一个游戏路径。"), I18n.T("无法启用随游戏自动启动"))
-                return false
-            }
+        collect := this._CollectAutoStartPaths(enabled)
+        if (collect.invalidMessage != "") {
+            ; 某条路径校验失败：保持既有行为——中止保存并提示具体原因
+            MessageBox.Error(collect.invalidMessage, I18n.T("无法启用随游戏自动启动"))
+            return false
+        }
+        appliedGamePaths := collect.paths
+        if (enabled && appliedGamePaths.Length = 0) {
+            ; 一条有效路径都没有（例如用户刚确认清掉最后一条失效路径）：
+            ; 随游戏自启无对象可订阅，继续报错会把保存卡成死循环，故改为关闭自启并继续保存。
+            Logger.Info("Settings", "无有效游戏路径，随游戏自动启动已自动关闭")
+            enabled := false
+        }
 
-            if (Config.GetImportant("AutoStartWithGame") != "1") {
-                result := MessageBox.Confirm(I18n.T("启用此功能需要开启 Windows 的“进程创建成功审核”。`nWindows 将为进程启动记录安全日志；关闭此功能后，审核设置仍会保留。`n`n是否继续？"), I18n.T("启用随游戏自动启动"))
-                if (result = "No")
-                    return false
-            }
+        if (enabled && Config.GetImportant("AutoStartWithGame") != "1") {
+            result := MessageBox.Confirm(I18n.T("启用此功能需要开启 Windows 的“进程创建成功审核”。`nWindows 将为进程启动记录安全日志；关闭此功能后，审核设置仍会保留。`n`n是否继续？"), I18n.T("启用随游戏自动启动"))
+            if (result = "No")
+                return false
         }
 
         result := GameAutoStartManager.Apply(enabled, appliedGamePaths)
@@ -339,7 +332,55 @@ class SettingsService {
             MessageBox.Error(result.message, enabled ? I18n.T("启用随游戏自动启动失败") : I18n.T("关闭随游戏自动启动失败"))
             return false
         }
+        ; 上一步因“无有效路径”自动降级为关闭时，把开关一并落盘（本次 SaveAllToIni 会写入）
+        if (!enabled && Config.GetImportant("AutoStartWithGame") = "1")
+            Config.SetImportant("AutoStartWithGame", "0")
         return true
+    }
+
+    ; 收集本次要写入自启任务的路径（规范化后的完整路径），返回 {paths, invalidMessage}。
+    ; 纯逻辑、不弹窗：便于抛给调用方决定提示文案，也便于脱离 GUI 验证。
+    ; invalidMessage 非空表示某条路径校验失败（调用方应中止并提示）。
+    static _CollectAutoStartPaths(enabled) {
+        result := {paths: [], invalidMessage: ""}
+        if (!enabled)
+            return result
+
+        gamePaths := GameAutoStartManager.GetConfiguredGamePaths()
+        if (gamePaths.Length = 0)
+            gamePaths := [Config.GetImportant("GamePath")]
+        defaultGamePath := Config.GetImportant("GamePath")
+        for gamePath in gamePaths {
+            if (gamePath = "")
+                continue
+            validation := GameAutoStartManager.ValidateGamePath(gamePath)
+            if (!validation.success) {
+                result.invalidMessage := validation.message
+                return result
+            }
+            ; 只有当前路径就是用户指定的默认启动路径时，才更新 GamePath；
+            ; 其余区服路径只参与自启任务，不能覆盖默认启动路径。
+            if (gamePath = defaultGamePath) {
+                Config.SetImportant("GamePath", validation.path)
+                EventBus.Publish("GamePathNormalized", {path: validation.path})
+            }
+            result.paths.Push(validation.path)
+        }
+        return result
+    }
+
+    ; 暂存若干配置项当前值，供“临时改内存后还原”使用（返回 Map(key → value)）
+    static _SnapshotPaths(entries) {
+        snapshot := Map()
+        for entry in entries
+            snapshot[entry.key] := Config.GetImportant(entry.key)
+        return snapshot
+    }
+
+    ; 还原 _SnapshotPaths 暂存的值
+    static _RestorePaths(snapshot) {
+        for key, value in snapshot
+            Config.SetImportant(key, value)
     }
 
     ; 提交用户已确认的失效路径清理：清空内存工作副本并记录日志。
