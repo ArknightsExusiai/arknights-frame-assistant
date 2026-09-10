@@ -108,8 +108,6 @@ class LocaleEnUS {
         "默认启动卫戍协议方案", "Default Stronghold Protocol Plan",
         "标签页顺序", "Tab Order",
         "隐藏的标签页", "Hidden Tabs",
-        "开局自动暂停", "Auto Begin Pause",
-        "开局自动二倍速", "Auto Begin Speed",
         "使用“返回上级菜单”放弃行动", "Use Back to Cease Operations",
         "在非战斗关卡场景禁用常规战斗热键", "Disable Combat Hotkeys Outside Levels",
         "调试模式", "Debug Mode",
