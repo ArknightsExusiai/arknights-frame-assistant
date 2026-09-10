@@ -250,7 +250,7 @@ class SettingsService {
         ; 会被自启校验重新报成「游戏路径不存在或不是文件」，保存再次被挡住、点不动。
         ; 这里临时清空内存取值（事务上仍保持“保存失败即还原”，见下）。
         autoStartSnapshot := this._SnapshotPaths(missingEntries)
-        this._ClearConfirmedPaths(missingEntries, missingPaths)
+        this._ClearConfirmedPaths(missingEntries)
         autoStartOk := this._ApplyGameAutoStart()
         this._RestorePaths(autoStartSnapshot)
         if (!autoStartOk) {
@@ -271,7 +271,7 @@ class SettingsService {
 
         ; 保存到 INI（全量保存 Config 工作副本；单键场景请走 UpdatePersistedValue）
         ; 用户已确认的失效路径清理在此提交：此前任何一步失败都已在上面还原，内存与磁盘保持一致。
-        this._ClearConfirmedPaths(missingEntries, missingPaths)
+        this._ClearConfirmedPaths(missingEntries)
 
         ; 主题最后提交：自定义按键文件失败时，不把仍处于预览的主题提前落盘。
         themeMode := Config.GetImportant("ThemeMode")
@@ -283,6 +283,8 @@ class SettingsService {
             MessageBox.Error(saveResult.message, I18n.T("设置保存失败"))
             return false
         }
+        ; 落盘成功后才记清理日志：避免“日志说已清除、实际写入失败”的误导
+        this._LogConfirmedPathsCleared(missingEntries, missingPaths)
 
         ; 落盘自定义按键（独立文件；Settings.ini 成功后才写入，任一步失败都中止保存）
         customSaveResult := CustomHotkeyStore.Save(Config.AllCustomHotkeys)
@@ -381,14 +383,18 @@ class SettingsService {
             Config.SetImportant(key, value)
     }
 
-    ; 提交用户已确认的失效路径清理：清空内存工作副本并记录日志。
-    ; 调用点必须在其余校验与外部设置之后、SaveAllToIni 之前——这样保存中止时不改动内存，
-    ; 内存与磁盘始终一致（清空值随本次 SaveAllToIni 一次落盘）。
-    static _ClearConfirmedPaths(missingEntries, missingPaths) {
-        if (missingEntries.Length = 0)
-            return
+    ; 清空用户已确认的失效路径（内存工作副本）。
+    ; 只做清空、不记日志：本流程会调用两次（自启校验前临时清、落盘前提交），
+    ; 日志由 _LogConfirmedPathsCleared 在提交后统一记一次，避免重复条目。
+    static _ClearConfirmedPaths(missingEntries) {
         for entry in missingEntries
             Config.SetImportant(entry.key, "")
+    }
+
+    ; 记录已提交的失效路径清理（提交后调用一次）
+    static _LogConfirmedPathsCleared(missingEntries, missingPaths) {
+        if (missingEntries.Length = 0)
+            return
         Logger.Info("Settings", "已清除 " missingEntries.Length " 条失效游戏路径记录：" this._BuildMissingPathsLines(missingEntries, missingPaths))
     }
 
